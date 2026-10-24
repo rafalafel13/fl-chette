@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Fléchettes à la voix</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one column scoreboard, mic button at the heart, three dart slots, history below */
+:root {
+  --bg: #f3efe6;        /* sisal */
+  --surface: #fffdf8;
+  --fg: #1d1c1a;
+  --muted: #6b665c;
+  --line: #ddd5c4;
+  --red: #b3122b;
+  --green: #0b6b45;
+  --on-accent: #ffffff;
+  --font-display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15140f; --surface: #201e18; --fg: #f1ece0; --muted: #a59f90; --line: #37332a;
+    --red: #e04a5f; --green: #3fb184; --on-accent: #15140f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15140f; --surface: #201e18; --fg: #f1ece0; --muted: #a59f90; --line: #37332a;
+  --red: #e04a5f; --green: #3fb184; --on-accent: #15140f; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+main { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header h1 { font-family: var(--font-display); font-weight: 700; font-size: 2rem; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); }
+.mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#mic {
+  width: 132px; height: 132px; border-radius: 50%; border: 6px solid var(--green);
+  background: var(--red); color: var(--on-accent); cursor: pointer;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 0 0 6px var(--bg), 0 0 0 8px var(--line);
+}
+#mic:focus-visible { outline: 3px solid var(--fg); outline-offset: 10px; }
+#mic.listening { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px var(--bg), 0 0 0 16px var(--green); } }
+@media (prefers-reduced-motion: reduce) { #mic.listening { animation: none; border-color: var(--fg); } }
+#status { color: var(--muted); min-height: 1.4em; text-align: center; }
+#heard { font-style: italic; text-align: center; min-height: 1.4em; overflow-wrap: anywhere; }
+.turn { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 8px; align-items: stretch; }
+.slot {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.slot .code { font-family: var(--font-display); font-weight: 700; font-size: 1.9rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.slot .pts { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.slot.empty .code { color: var(--line); }
+.slot .code.d { color: var(--green); }
+.slot .code.t { color: var(--red); }
+.total { padding: 10px 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.total .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.total .val { font-family: var(--font-display); font-weight: 700; font-size: 2.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row input { flex: 1 1 200px; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+button.small { font: inherit; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+button.small:focus-visible, .row input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+section h2 { font-family: var(--font-display); font-size: 1.1rem; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; color: var(--muted); }
+.help { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.6; }
+.help b { color: var(--fg); font-weight: 700; }
+#log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#log li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; font-variant-numeric: tabular-nums; }
+#log li span:first-child { overflow-wrap: anywhere; min-width: 0; color: var(--muted); }
+.note { font-size: .85rem; color: var(--muted); }
+</style>
+
+<main>
+  <header>
+    <h1>Fléchettes à la voix</h1>
+    <p>Appuie sur le micro et annonce tes fléchettes.</p>
+  </header>
+
+  <div class="mic-wrap">
+    <button id="mic" type="button" aria-pressed="false">Parler</button>
+    <div id="status">Prêt.</div>
+    <div id="heard" aria-live="polite"></div>
+  </div>
+
+  <div class="turn" aria-label="Volée en cours">
+    <div class="slot empty" id="s0"><span class="code">–</span><span class="pts">&nbsp;</span></div>
+    <div class="slot empty" id="s1"><span class="code">–</span><span class="pts">&nbsp;</span></div>
+    <div class="slot empty" id="s2"><span class="code">–</span><span class="pts">&nbsp;</span></div>
+    <div class="slot total"><span class="label">Volée</span><span class="val" id="turnTotal">0</span></div>
+  </div>
+
+  <form class="row" id="typeForm">
+    <input id="typed" type="text" placeholder="Ou écris ce que tu dirais : triple vingt" autocomplete="off">
+    <button class="small" type="submit">Tester</button>
+    <button class="small" type="button" id="undo">Annuler</button>
+  </form>
+
+  <section>
+    <h2>Ce que tu peux dire</h2>
+    <ul class="help">
+      <li><b>« vingt »</b>, <b>« simple cinq »</b> : simple</li>
+      <li><b>« double seize »</b>, <b>« triple dix-neuf »</b></li>
+      <li><b>« vingt-cinq »</b> ou <b>« bull »</b> : 25 · <b>« cinquante »</b> ou <b>« dans le mille »</b> : 50</li>
+      <li><b>« raté »</b>, <b>« zéro »</b>, <b>« dehors »</b> : 0</li>
+      <li>Plusieurs d'un coup : <b>« triple vingt, vingt, double cinq »</b></li>
+      <li><b>« annule »</b> retire la dernière fléchette</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Volées</h2>
+    <ol id="log"><li><span>triple vingt · dix-neuf · double cinq (exemple)</span><span>89</span></li></ol>
+  </section>
+
+  <p class="note" id="support"></p>
+</main>
+
+<script>
+// PARSER START
+const NUM_WORDS = {
+  zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9,
+  dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16, vingt: 20, cinquante: 50,
+  // homophones souvent renvoyés par la reconnaissance
+  vin: 20, vins: 20, vint: 20, vain: 20, cette: 7, set: 7, sette: 7, dis: 10, dit: 10, sis: 6, cinque: 5
+};
+const MULT_WORDS = { simple: 1, single: 1, double: 2, doublé: 2, doubler: 2, triple: 3, tripler: 3, treble: 3 };
+const MISS_WORDS = new Set(["rate", "raté", "rater", "zero", "dehors", "out", "manque", "rien"]);
+const UNDO_WORDS = new Set(["annule", "annuler", "annulé", "efface", "effacer", "retire", "corrige"]);
+
+function normalize(text) {
+  return text.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/dans le mille|plein centre|double bull|bullseye|bull's eye/g, " fifty ")
+    .replace(/a cote/g, " rate ")
+    .replace(/\b([tds])\s?(\d{1,2})\b/g, (m, l, n) => ({ t: "triple ", d: "double ", s: "simple " }[l] + n))
+    .replace(/[-,.;:!?']/g, " ")
+    .split(/\s+/).filter(Boolean);
+}
+
+// Turns words into a token list: {n: number} | {m: multiplier} | {miss} | {undo}
+function tokenize(words) {
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i], next = words[i + 1];
+    if (w === "fifty") { out.push({ n: 50 }); continue; }
+    if (w === "bull" || w === "boule" || w === "bulle" || w === "centre") { out.push({ n: 25 }); continue; }
+    if (UNDO_WORDS.has(w)) { out.push({ undo: true }); continue; }
+    if (w === "zero" || w === "0" || MISS_WORDS.has(w)) { out.push({ miss: true }); continue; }
+    if (w in MULT_WORDS) { out.push({ m: MULT_WORDS[w] }); continue; }
+    if (w === "fois") continue; // "trois fois vingt"
+    let n = /^\d+$/.test(w) ? parseInt(w, 10) : NUM_WORDS[w];
+    if (n === undefined) continue; // mot inconnu : ignoré
+    if (n === 10 && next && ["sept", "huit", "neuf", "cette", "set"].includes(next)) { n = 10 + NUM_WORDS[next]; i++; }
+    else if (n === 20 && next === "cinq") { n = 25; i++; }
+    // "trois fois vingt" -> triple
+    if ((n === 2 || n === 3) && words[i + 1] === "fois") { out.push({ m: n }); continue; }
+    // "un" / "une" juste avant un multiplicateur : article, pas une fléchette
+    if (n === 1 && (w === "un" || w === "une") && words[i + 1] in MULT_WORDS) continue;
+    out.push({ n });
+  }
+  return out;
+}
+
+// Returns {darts: [{mult, base, points, code}], undo: count, errors: [..]}
+function parseThrows(text) {
+  const tokens = tokenize(normalize(text));
+  const darts = [], errors = [];
+  let undo = 0, mult = null;
+  for (const t of tokens) {
+    if (t.undo) { undo++; mult = null; continue; }
+    if (t.miss) { darts.push(dart(1, 0)); mult = null; continue; }
+    if (t.m) { mult = t.m; continue; }
+    const n = t.n;
+    if (n === 50) { darts.push(dart(2, 25)); mult = null; continue; }
+    if (n === 25) {
+      if (mult === 3) { darts.push(dart(3, 20)); darts.push(dart(1, 5)); }   // "triple vingt cinq"
+      else darts.push(dart(mult === 2 ? 2 : 1, 25));
+      mult = null; continue;
+    }
+    if (n >= 1 && n <= 20) { darts.push(dart(mult || 1, n)); mult = null; continue; }
+    errors.push(String(n)); mult = null;
+  }
+  return { darts, undo, errors };
+}
+
+function dart(mult, base) {
+  const points = mult * base;
+  let code;
+  if (base === 0) code = "0";
+  else if (base === 25) code = mult === 2 ? "BULL" : "25";
+  else code = (mult === 3 ? "T" : mult === 2 ? "D" : "") + base;
+  return { mult, base, points, code };
+}
+// PARSER END
+
+const state = { turn: [], turns: [], sample: true };
+const $ = id => document.getElementById(id);
+
+function render() {
+  for (let i = 0; i < 3; i++) {
+    const d = state.turn[i], el = $("s" + i);
+    el.classList.toggle("empty", !d);
+    const code = el.querySelector(".code");
+    code.textContent = d ? d.code : "–";
+    code.className = "code" + (d && d.base !== 25 && d.mult === 2 ? " d" : "") + (d && d.mult === 3 ? " t" : "") + (d && d.code === "BULL" ? " d" : "");
+    el.querySelector(".pts").textContent = d ? d.points + " pts" : " ";
+  }
+  $("turnTotal").textContent = state.turn.reduce((s, d) => s + d.points, 0);
+  const log = $("log");
+  if (state.sample) return;
+  log.replaceChildren(...state.turns.slice().reverse().map(t => {
+    const li = document.createElement("li");
+    const a = document.createElement("span"); a.textContent = t.map(d => d.code).join(" · ");
+    const b = document.createElement("span"); b.textContent = t.reduce((s, d) => s + d.points, 0);
+    li.append(a, b); return li;
+  }));
+}
+
+function addDart(d) {
+  if (state.turn.length === 3) { state.turn = []; }
+  state.turn.push(d);
+  if (state.turn.length === 3) { state.sample = false; state.turns.push(state.turn.slice()); }
+}
+
+function undoDart() {
+  // A full turn on screen is also the last entry of the log
+  if (state.turn.length === 0 && state.turns.length) state.turn = state.turns.pop();
+  else if (state.turn.length === 3) state.turns.pop();
+  state.turn.pop();
+}
+
+function handle(text, alternatives) {
+  // Choose the first alternative that yields something usable
+  const candidates = [text, ...(alternatives || [])];
+  let res = null, used = text;
+  for (const c of candidates) {
+    const r = parseThrows(c);
+    if (r.darts.length || r.undo) { res = r; used = c; break; }
+  }
+  $("heard").textContent = "« " + used + " »";
+  if (!res) { $("status").textContent = "Pas compris. Essaie « triple vingt » ou « double seize »."; return; }
+  state.sample = false;
+  for (let i = 0; i < res.undo; i++) undoDart();
+  res.darts.forEach(addDart);
+  $("status").textContent = res.darts.length
+    ? "Compris : " + res.darts.map(d => d.code + " = " + d.points).join(", ")
+    : "Dernière fléchette annulée.";
+  render();
+}
+
+$("typeForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("typed").value.trim();
+  if (v) handle(v);
+  $("typed").value = "";
+});
+$("undo").addEventListener("click", () => { state.sample = false; undoDart(); $("status").textContent = "Dernière fléchette annulée."; render(); });
+
+// Voice recognition
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (!SR) {
+  $("support").textContent = "La reconnaissance vocale n'est pas disponible dans ce navigateur. Ouvre la page dans Chrome (Android) ou Safari (iPhone). Tu peux tester en écrivant dans le champ ci-dessus.";
+} else {
+  rec = new SR();
+  rec.lang = "fr-FR";
+  rec.interimResults = true;
+  rec.maxAlternatives = 5;
+  rec.continuous = false;
+  rec.onresult = e => {
+    const r = e.results[e.results.length - 1];
+    if (!r.isFinal) { $("heard").textContent = "… " + r[0].transcript; return; }
+    const alts = [];
+    for (let i = 1; i < r.length; i++) alts.push(r[i].transcript);
+    handle(r[0].transcript, alts);
+  };
+  rec.onerror = e => {
+    const msg = {
+      "not-allowed": "Le micro est bloqué. Autorise le micro pour cette page dans le navigateur.",
+      "service-not-allowed": "Le micro est bloqué. Autorise le micro pour cette page dans le navigateur.",
+      "no-speech": "Je n'ai rien entendu. Réessaie un peu plus près du téléphone.",
+      "audio-capture": "Aucun micro trouvé.",
+      "network": "La reconnaissance a besoin d'Internet. Vérifie ta connexion."
+    }[e.error] || "Erreur de reconnaissance : " + e.error;
+    $("status").textContent = msg;
+  };
+  rec.onend = () => { listening = false; $("mic").classList.remove("listening"); $("mic").setAttribute("aria-pressed", "false"); $("mic").textContent = "Parler"; };
+}
+
+$("mic").addEventListener("click", () => {
+  if (!rec) { $("status").textContent = "Pas de reconnaissance vocale ici. Utilise le champ texte."; return; }
+  if (listening) { rec.stop(); return; }
+  try {
+    rec.start();
+    listening = true;
+    $("mic").classList.add("listening");
+    $("mic").setAttribute("aria-pressed", "true");
+    $("mic").textContent = "J'écoute";
+    $("status").textContent = "Annonce ta fléchette…";
+  } catch (err) { $("status").textContent = "Impossible de démarrer le micro."; }
+});
+
+render();
+</script>
+
+</body>
+</html>
