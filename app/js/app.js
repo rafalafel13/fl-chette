@@ -353,8 +353,9 @@ root.addEventListener('click', (e) => {
       break;
     case 'tap-number': {
       const n = parseInt(el.dataset.number, 10);
-      pushDart({ segment: n, mult: manualMult, value: n * manualMult });
+      const mult = manualMult;
       manualMult = 1;
+      pushDart({ segment: n, mult, value: n * mult });
       return;
     }
     case 'tap-bull-single':
@@ -597,6 +598,50 @@ function renderSetup() {
   `;
 }
 
+// Replays the dart history to list the finished volleys, newest first:
+// [{ name, darts, total, bust }].
+function pastVolleys() {
+  const mod = GAME_MODULES[session.kind];
+  const state = mod.createState(session.config);
+  const volleys = [];
+  let darts = [];
+  for (const dart of session.history) {
+    if (state.winnerId) break;
+    const player = state.players[state.currentPlayerIndex];
+    const scoreBefore = player.score;
+    const turnsBefore = player.turns ? player.turns.length : 0;
+    mod.applyDart(state, dart);
+    darts.push(dart);
+    if (state.winnerId || state.currentTurn.length === 0) {
+      const total = darts.reduce((sum, d) => sum + d.value, 0);
+      const bust = session.kind === 'x01' && !state.winnerId && player.turns.length > turnsBefore && player.score === scoreBefore && total > 0;
+      volleys.push({ name: player.name, darts, total, bust });
+      darts = [];
+    }
+  }
+  return volleys.reverse();
+}
+
+function renderVolleyLog(isX01) {
+  const volleys = pastVolleys();
+  if (volleys.length === 0) return '';
+  return `
+    <div class="volley-log">
+      <div class="volley-log-title">Volées précédentes</div>
+      ${volleys
+        .map(
+          (v) => `
+        <div class="volley-row">
+          <span class="volley-name">${escapeHtml(v.name)}</span>
+          <span class="volley-darts">${v.darts.map(dartLabel).join(' · ')}</span>
+          ${isX01 ? `<span class="volley-total ${v.bust ? 'bust' : ''}">${v.bust ? 'Annulé' : v.total}</span>` : ''}
+        </div>`
+        )
+        .join('')}
+    </div>
+  `;
+}
+
 function renderPlayersRowX01(state, total) {
   return `<div class="players-row">${state.players
     .map(
@@ -721,6 +766,8 @@ function renderGame() {
       `
           : ''
       }
+
+      ${renderVolleyLog(isX01)}
     </div>
 
     ${
