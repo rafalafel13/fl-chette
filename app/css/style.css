@@ -267,6 +267,21 @@ button {
   color: var(--text-dim);
 }
 .dart-slot.filled { color: var(--text); background: var(--glass-strong); }
+.volley-log {
+  background: var(--glass-weak);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.volley-log-title { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+.volley-row { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; border-top: 1px solid var(--glass-weak); }
+.volley-row:first-of-type { border-top: none; }
+.volley-name { flex: 0 0 30%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.volley-darts { flex: 1; color: var(--text-dim); }
+.volley-total { font-weight: 700; }
+.volley-total.bust { color: #ff9d9d; font-weight: 600; }
 .undo-btn { flex: 0 0 auto; font-size: 1.3rem; padding: 10px 14px; }
 
 .input-mode-toggle { display: flex; gap: 8px; }
