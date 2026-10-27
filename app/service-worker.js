@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flechettes-v2';
+const CACHE_NAME = 'flechettes-v3';
 const ASSETS = [
   './',
   './index.html',

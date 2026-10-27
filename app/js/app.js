@@ -28,6 +28,12 @@ let manualMult = 1;
 let voiceEnabled = true;
 let speechInput = null;
 let listening = false;
+// Hands-free mode: once the mic is switched on, recognition restarts by
+// itself after each phrase (and after the app finishes speaking) until the
+// player switches it off, leaves the game, or the game ends.
+let handsFree = false;
+let appSpeaking = false;
+let restartTimer = null;
 let lastTranscript = '';
 
 function uid() {
@@ -73,11 +79,52 @@ function speak(text) {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'fr-FR';
     u.rate = 1.05;
+    // Keep the mic off while the app talks, otherwise it hears itself.
+    const done = () => {
+      appSpeaking = false;
+      scheduleRestart();
+    };
+    u.onend = done;
+    u.onerror = done;
+    // Some Android voices never fire onend: don't leave the mic off forever.
+    setTimeout(() => appSpeaking && done(), 2000 + text.length * 90);
+    appSpeaking = true;
+    speechInput?.stop();
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {
-    /* speech synthesis unavailable */
+    appSpeaking = false;
   }
+}
+
+function canListen() {
+  if (!handsFree || !session || inputMode !== 'voice' || !GAME_VIEW[session.kind] || view !== GAME_VIEW[session.kind]) return false;
+  const state = deriveState();
+  return !!state && !state.winnerId;
+}
+
+function scheduleRestart() {
+  clearTimeout(restartTimer);
+  restartTimer = setTimeout(() => {
+    if (!listening && !appSpeaking && canListen()) speechInput?.start();
+  }, 300);
+}
+
+function stopHandsFree() {
+  handsFree = false;
+  clearTimeout(restartTimer);
+  speechInput?.stop();
+}
+
+// In a multi-player game, says whose turn it is when the turn moves on.
+function turnAnnouncement(before, after) {
+  if (after.winnerId || after.players.length < 2 || before.currentPlayerIndex === after.currentPlayerIndex) return '';
+  const next = after.players[after.currentPlayerIndex];
+  return session.kind === 'x01' ? `À ${next.name}, il reste ${next.score}.` : `À ${next.name}.`;
+}
+
+function joinSpoken(...parts) {
+  return parts.filter(Boolean).join('. ');
 }
 
 function dartLabel(d) {
@@ -108,7 +155,8 @@ function pushDart(dart) {
   const after = deriveState();
   recordGameHistoryIfFinished(after);
   persistSession();
-  speak(after.message);
+  if (after.winnerId) stopHandsFree();
+  speak(joinSpoken(after.message, turnAnnouncement(before, after)));
   render();
 }
 
@@ -118,6 +166,16 @@ function handleVoiceFinalTranscript(text) {
     render();
     return;
   }
+  if (/\bannul/i.test(text)) {
+    if (session.history.length > 0) {
+      const removed = session.history.pop();
+      persistSession();
+      speak(`Annulé : ${dartSpokenLabel(removed)}`);
+    }
+    render();
+    return;
+  }
+  const before = deriveState();
   const darts = parseDarts(text);
   if (darts.length === 0) {
     speak("Je n'ai pas compris, réessaie ou utilise le clavier.");
@@ -134,8 +192,8 @@ function handleVoiceFinalTranscript(text) {
   const finalState = deriveState();
   recordGameHistoryIfFinished(finalState);
   persistSession();
-  const summary = spokenParts.join(', ');
-  speak(finalState.message ? `${summary}. ${finalState.message}` : summary);
+  if (finalState.winnerId) stopHandsFree();
+  speak(joinSpoken(spokenParts.join(', '), finalState.message, turnAnnouncement(before, finalState)));
   render();
 }
 
@@ -147,10 +205,13 @@ function ensureSpeechInput() {
     },
     onListeningChange: (isListening) => {
       listening = isListening;
+      if (!isListening) scheduleRestart();
       render();
     },
-    onError: () => {
+    onError: (error) => {
       listening = false;
+      // Mic refused: stop retrying instead of looping on the error.
+      if (error === 'not-allowed' || error === 'service-not-allowed' || error === 'audio-capture') handsFree = false;
       render();
     },
   });
@@ -162,8 +223,13 @@ function toggleListen() {
     alert("La reconnaissance vocale n'est pas disponible sur ce navigateur. Essaie avec Chrome, ou utilise le mode manuel.");
     return;
   }
-  if (listening) speechInput.stop();
-  else speechInput.start();
+  if (handsFree) {
+    stopHandsFree();
+  } else {
+    handsFree = true;
+    speechInput.start();
+  }
+  render();
 }
 
 // Android's system back gesture only knows how to navigate "back" if the
@@ -179,6 +245,7 @@ function navigateAway(newView) {
 }
 
 function goHome() {
+  stopHandsFree();
   view = 'home';
   if (history.state && history.state.inApp) {
     history.back();
@@ -186,6 +253,7 @@ function goHome() {
 }
 
 window.addEventListener('popstate', () => {
+  stopHandsFree();
   view = 'home';
   render();
 });
@@ -278,6 +346,7 @@ root.addEventListener('click', (e) => {
     case 'set-input-mode':
       inputMode = el.dataset.mode;
       if (inputMode === 'voice') ensureSpeechInput();
+      else stopHandsFree();
       break;
     case 'set-mult':
       manualMult = parseInt(el.dataset.value, 10);
@@ -590,10 +659,11 @@ function renderManualPad(isX01) {
 function renderVoicePanel() {
   return `
     <div class="voice-panel">
-      <button class="mic-btn ${listening ? 'listening' : ''}" data-action="toggle-listen">
-        ${listening ? '🎙️ Écoute…' : '🎤 Appuie et parle'}
+      <button class="mic-btn ${handsFree ? 'listening' : ''}" data-action="toggle-listen">
+        ${handsFree ? (listening ? '🎙️ J\'écoute… (appuie pour couper)' : '⏳ Micro en pause…') : '🎤 Activer le micro'}
       </button>
-      <p class="voice-hint">Exemples : « triple 20 », « double 18 », « 5 », « raté »</p>
+      <p class="voice-hint">Le micro reste allumé tant que tu ne le coupes pas.</p>
+      <p class="voice-hint">Exemples : « triple 20 », « double 18 », « 5 », « raté », « annule »</p>
       ${lastTranscript ? `<p class="voice-transcript">J'ai entendu : « ${escapeHtml(lastTranscript)} »</p>` : ''}
       ${!speechSupported ? '<p class="voice-unsupported">⚠️ Reconnaissance vocale indisponible sur ce navigateur. Utilise le mode manuel.</p>' : ''}
     </div>
