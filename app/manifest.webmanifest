@@ -1,0 +1,25 @@
+{
+  "name": "Fléchettes",
+  "short_name": "Fléchettes",
+  "description": "Jeux de fléchettes : 301/501 et Cricket, avec saisie vocale ou manuelle.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12162b",
+  "theme_color": "#12162b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
